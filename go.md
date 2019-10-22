@@ -2778,3 +2778,261 @@ func main() {
 
 **值接收者和指针接收者**
 
+```go
+package main
+
+import "fmt"
+
+func main() {
+	p1 := newPerson(16) // 16
+	p1.guonian()
+	fmt.Println(p1.age)
+	p1.zhenguonian()
+	fmt.Println(p1.age) // 17
+}
+
+type person struct {
+	age int
+}
+
+func newPerson(age int) person {
+	return person{
+		age: age,
+	}
+}
+
+// 值接收者、传值进去拷贝
+func (p person) guonian() {
+	p.age++
+}
+
+// 指针接收者、传内存进去
+func (p *person) zhenguonian() {
+	p.age++
+}
+```
+
+**指针接收者的应用场景**
+
+1. 需要修改接收者中的值
+2. 接收者是拷贝代价比较大的大对象
+3. 保证一致性，如果一个方法使用了指针接收者，那么所有的方法都应该使用指针接收者
+
+**给任意类型添加方法**
+
+不能给别的包里面的类型添加方法，只能给自己包里面的类型添加方法
+
+想要给别人的包里的类型定义方法，那么在别人包的类型上自定义类型
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    // 强制类型转换、声明 myInt 类型、值为 100 的变量 m
+	m := myInt(100)
+	m.hello()
+}
+
+type myInt int
+
+func (i myInt) hello() {
+	fmt.Println(666)
+}
+```
+
+> *int 表示的是指针类型，它跟 int 等类型使用方式差不多。当 &H 返回传入的时候使用它来表示返回传入的是指针类型，他们两个经常成对出现
+>
+>  h := &H 表示获得指针， *h 表示获得保存在此指针地址的值
+
+---
+
+**结构体的匿名字段**
+
+- 没有名字的字段
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	p1 := person{
+		"tom",
+		18,
+	}
+	fmt.Println(p1.string) // 把类型当做字段
+}
+
+type person struct {
+	string
+	int
+}
+```
+
+**嵌套结构体**
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	p1 := person{
+		name: "tom",
+		age:  9,
+		addr: address{
+			province: "山东",
+			city:     "威海",
+		},
+	}
+	fmt.Println(p1)
+	fmt.Println(p1.addr.city) // 获取嵌套结构体内的值
+}
+
+type address struct {
+	province string
+	city     string
+}
+
+type person struct {
+	name string
+	age  int
+	addr address
+}
+
+type company struct {
+	name     string
+	province string
+	city     string
+}
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	p1 := person{
+		name: "tom",
+		age:  9,
+		addr: address{
+			province: "山东",
+			city:     "威海",
+		},
+	}
+	fmt.Println(p1)
+// 语法糖、直接访问结构体类型里的值。如果两个结构体内的字段名重复了就不能这样用了
+	fmt.Println(p1.city) 
+}
+
+type address struct {
+	province string
+	city     string
+}
+
+type person struct {
+	name string
+	age  int
+	address       // 匿名结构体
+}
+
+type company struct {
+	name     string
+	province string
+	city     string
+}
+```
+
+---
+
+#### 结构体的"继承"
+
+- 没有继承的概念，可以使用结构体嵌套模拟继承
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	d1 := dog{
+		animal: animal{name: "tom"},
+		feet:   4,
+	}
+    fmt.Println(d1) // {4 {tom}}
+	d1.move()       // tom会动！
+}
+
+type animal struct {
+	name string
+}
+
+func (a animal) move() {
+	fmt.Printf("%s会动！", a.name)
+}
+
+type dog struct {
+	feet uint8
+	animal         // 使用嵌套结构体模拟继承、dog 结构体可以使用 animal 的属性和方法
+}
+
+func (d dog) wang() {
+	fmt.Printf("%s在叫汪汪汪！", d.name)
+}
+```
+
+---
+
+#### 结构体与 JSON
+
+序列化：结构体 => JSON
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+func main() {
+	p1 := person{
+		Name: "tom",
+		Age:  9,
+	}
+	b, err := json.Marshal(p1)
+	if err != nil {
+		fmt.Printf("marshal failed, err:%v", err)
+		return
+	}
+    fmt.Printf("%v\n", string(b)) // 为啥大写：因为会把结构体送到 json 包里、而导出的标识符必须首字母大写
+}
+
+type person struct {
+	Name string
+	Age  int
+}
+```
+
+```go
+// 下面形式是设置序列化后的输出结果
+type person struct {
+	Name string `json:"name" db:"name" ini:"name"`
+	Age  int    `json:"age" db:"age" ini:"age"`
+}
+```
+
+反序列化：JSON => 结构体
+
+```go
+str := `{"name":"tom","age":"9"}`
+var p2 person
+json.Unmarshal([]byte(str), &p2) // 传指针是为了在函数内部修改 p2 的值
+fmt.Printf("%#v\n", p2)          // main.person{Name:"tom", Age:0}
+```
+
+---
+
