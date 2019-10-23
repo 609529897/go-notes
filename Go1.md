@@ -1,4 +1,4 @@
-# Go
+# Go 第一部分
 
 **什么是 Go 语言**
 
@@ -464,6 +464,7 @@ fmt.Printf("value: %v", i) // %v : 打印变量值
 %t : 布尔类型
 %c : 可以把其他类型转换成字符
 %#v : 输出变量值的准确形式（详细语法表示）
+%+v : 详细语法表示
 %p : 指针
 %p + &值 : 获得二进制的底层数组
 ```
@@ -646,6 +647,7 @@ newS2 := byte('H') // 强制转换成 byte
 
 ```go
 func main() {
+    // 此时 age 就是在 if 的块级作用域好使
 	if age := 19; age > 18 {
 		fmt.Println(6)
 	} else if age > 8 {
@@ -750,6 +752,11 @@ func main() {
 	}
 }
 ```
+
+> of : 属于(某人); 关于(某人); 属于(某物); (某事) 部分的; 关于(某物); 出身于(某背景); 住在(某地); 
+>
+> for :  (表示对象、用途等) 给，对，供; 以帮助; 为了; 关于;
+>
 
 ---
 
@@ -862,6 +869,10 @@ forloop1:
 	}
 }
 ```
+
+> continue：跳过此次循环
+>
+> break：跳过这个 for 循环并跳到 break 后面的代码块
 
 ---
 
@@ -2070,7 +2081,14 @@ func f1() {
 // 嵌套函数的话只能使用匿名函数
 ```
 
-
+```go
+// 可以这样...
+func main() {
+    add := func() {
+        // do something...
+    }
+}
+```
 
 ---
 
@@ -2094,6 +2112,17 @@ func main() {
 // 66
 // 666
 ```
+
+```go
+// 这样非常方便的关闭一个操作、这个操作在这个函数中 return 前都使用
+func op() {
+    f := open("x")
+    defer f.close()
+    ...
+}
+```
+
+
 
 **函数 return 分为三步**
 
@@ -2445,6 +2474,10 @@ func main() {
 
 **获取输入**
 
+- scan函数会识别空格左右的内容，哪怕换行符号存在也不会影响scan对内容的获取。
+
+- scanln函数会识别空格左右的内容，但是一旦遇到换行符就会立即结束，不论后续还是否存在需要带输入的内容。
+
 Go语言`fmt`包下有`fmt.Scan`、`fmt.Scanf`、`fmt.Scanln`三个函数，可以在程序运行过程中从标准输入获取用户的输入。 
 
 ==fmt.Scan==
@@ -2559,6 +2592,7 @@ func ztj(n uint64) uint64 {
 
 ```go
 // 自定义类型
+// 编译后还有效
 type myInt int
 
 func main() {
@@ -2622,7 +2656,8 @@ func main() {
 var person = struct {
     name string
     age  int
-}
+  // 初始化
+}{"tom", 9}
 ```
 
 ---
@@ -3000,15 +3035,16 @@ import (
 
 func main() {
 	p1 := person{
+        // 结构体必须大写、 为啥大写：因为会把结构体送到 json 包里、而导出的标识符必须首字母大写
 		Name: "tom",
 		Age:  9,
 	}
-	b, err := json.Marshal(p1)
+	b, err := json.Marshal(p1) // go 语言里崇尚把错误当做值来返回
 	if err != nil {
 		fmt.Printf("marshal failed, err:%v", err)
 		return
 	}
-    fmt.Printf("%v\n", string(b)) // 为啥大写：因为会把结构体送到 json 包里、而导出的标识符必须首字母大写
+    fmt.Printf("%v\n", string(b))
 }
 
 type person struct {
@@ -3026,6 +3062,8 @@ type person struct {
 ```
 
 反序列化：JSON => 结构体
+
+反序列化时要传指针，这样才能修改原变量的值
 
 ```go
 str := `{"name":"tom","age":"9"}`
