@@ -2030,7 +2030,7 @@ func intSum(x, y int)(int, int) { // 可以返回多个值
     // do something
 }
 
-func sum(x int, y ...int) int {
+func sum(x int, y ...int) int { // 可变参数的接收形式是切片 slice
     fmt.Println(y[0]) // 2
 	return x
 }
@@ -2038,6 +2038,14 @@ func sum(x int, y ...int) int {
 // 切片 y: [2 3]; 除了第一个参数别的参数可以不传
 ret := sum(1, 2, 3)
 ```
+
+```go
+func fn(a ...interface{})
+fn(a...)  // 表示传入多个参数
+fn(a)     // 表示把参数放到一个切片在传进去（只有一个切片实参）
+```
+
+
 
 函数的参数和返回值都是可选的，例如我们可以实现一个既不需要参数也没有返回值的函数：
 

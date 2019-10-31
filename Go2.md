@@ -167,16 +167,15 @@ package 包名
 **注意事项：**
 
 - 一个文件夹下面只能有一个包，同样一个包的文件不能在多个文件夹下
-- 包名可以不和文件夹名字一样，包名不能包含 - 符号
+- 包名可以不和文件夹名字一样，但一般是同名，包名不能包含 - 符号
 - 包名 main 的包为应用程序的入口包，编译时不包含 main 包的源代码不会得到可执行文件。
 
 **导入包**
 
 - 包中的标识符小写的表示私有（只能在当前的包中使用），大写的表示可以导出，在别的包里导入
-
 - 默认文件夹名就是包名，go 语言禁止循环导入包
-
 - 包名的导入，一般是从 GOPATH/src 文件夹开始找起、最后到包名就可以。路径使用 `/` 分隔符
+- 文件夹只能声明一个包，同包下的函数方法的不用 `import` 就可以用（不知道需不需要首字符大写）
 
 ```go
 // add 是别名
@@ -184,19 +183,52 @@ import add "code.ninggele.com/studygo/calc"
 
 // 匿名导入
 import _ "包的路径"
+
+// 直接使用方法、不推荐使用
+import(
+    . "fmt"
+)
+
+Println(666) // 忽略包名、直接使用方法
 ```
 
 自定义导入导出：
 
 1. 要导出的变量名必须首字符大写
-2. `import`，导入从 src 文件夹到包的路径
+2. `import`，导入从 `src` 文件夹到包的路径
 3. 使用包里面的函数等
+
+---
+
+## 管理外部包
+
+**使用 `Github` 上的外部包**
+
+1. 直接从 github clone 下载源文件，放到 GOPATH/src 目录下 github.com
+2. 使用 go get 下载文件到 src 目录下
+
+```shell
+$ go get gitbub.com/go-sql-driver/mysql
+```
+
+```shell
+$ go install l_package/pk2
+```
+
+**go build 和 go install**
+
+- go build：用于测试编译包，在项目目录下生成可执行文件（有main包）。
+
+- go install：主要用来生成库和工具。一是编译包文件（无main包），将编译后的包文件放到 pkg 目录下（`$GOPATH/pkg`）。二是编译生成可执行文件（有main包），将可执行文件放到 bin 目录（`$GOPATH/bin`）。
+
+- go build 不能生成包文件, go install 可以生成包文件
+- go build 生成可执行文件在当前目录下， go install 生成可执行文件在bin目录下（`$GOPATH/bin`）
 
 ---
 
 **init 函数**
 
-没有参数，没有返回值。在导入包的时候自动触发的函数
+没有参数，没有返回值。在导入包的时候自动触发的函数，可以有多个
 
 ```go
 func init() {
@@ -209,7 +241,7 @@ func init() {
 - 全局声明
 - `init()`
 - `main()`
-- main => A包 => B包 => C白，执行顺序：C包的 init 函数 => B包 => A包
+- main => A包 => B包 => C白，执行顺序：C包的 `init` 函数 => B包 => A包
 
 ---
 
@@ -863,7 +895,7 @@ func fn() {
 
 ## sync.WaitGroup
 
-实现多个 `goroutine` 的同步
+实现所有的 `goroutine` 结束后主程序才结束
 
 ```go
 var wg sync.WaitGroup
@@ -1037,4 +1069,346 @@ Go语言中的操作系统线程和goroutine的关系：
 ---
 
 ## Channel
+
+多个 `goroutine` 之间使用 `channel` 进行通信。
+
+Go 语言中的通道（channel）是一种特殊的类型。通道像一个传送带或者队列，总是遵循先入先出（FIFO）的规则，保证收发数据的顺序。每个通道都是一个具体类型的导管，也就是声明 channel 的时候需要为其指定元素类型。
+
+**声明通道类型**
+
+```go
+var 变量 chan 元素类型
+var c chan int // 指定通道中元素的类型
+```
+
+channel 是引用类型，需要使用 make 函数初始化才能使用
+
+```go
+var c chan int
+// 通道的初始化、无缓冲区的通道（进一个取一个）
+c = make(chan int)
+
+// 通道的初始化、带缓冲区的通道（可以先放 10 个进去、让后再取值）
+c = make(chan int, 10)
+```
+
+**channel 操作**
+
+==发送==
+
+```go
+// 发送 10 到通道
+c <- 10
+```
+
+==接受==
+
+```go
+// 从通道接受一个值
+v := <-c
+
+// 丢弃值、不接受值
+<-c
+```
+
+==关闭==
+
+```go
+close(c)
+```
+
+**无缓冲区的 channel**
+
+```go
+var wg sync.WaitGroup
+
+func main() {
+	c := make(chan int)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		v := <-c
+		fmt.Println(v)
+		close(c)
+	}()
+	c <- 10
+	wg.Wait()
+}
+```
+
+**有缓冲区的 channel**
+
+```go
+// 不会阻塞
+func main() {
+	c := make(chan int, 10)
+	c <- 10
+}
+```
+
+```go
+// 确保某个操作只执行一次
+var once sync.Once
+once.Do(func() { close(c) })
+```
+
+---
+
+## 单向通道
+
+某个通道只发送或者只接收，多用于限制函数的参数
+
+确保我暴漏出去的通道只做一个操作
+
+```go
+// 只能往里面发送值的通道
+func fn(c chan<- int)
+
+// 只能取值的通道
+func fn(c <-chan int)
+```
+
+## 通道的异常情况总结
+
+| channel | nil   | 非空                         | 空的               | 满了                         | 没满                         |
+| ------- | ----- | ---------------------------- | ------------------ | ---------------------------- | ---------------------------- |
+| 接收    | 阻塞  | 接收值                       | 阻塞               | 接收值                       | 接收值                       |
+| 发送    | 阻塞  | 发送值                       | 发送值             | 阻塞                         | 发送值                       |
+| 关闭    | panic | 关闭成功，读完数据后返回零值 | 关闭成功，返回零值 | 关闭成功，读完数据后返回零值 | 关闭成功，读完数据后返回零值 |
+
+---
+
+## worker pool（goroutine 池）
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+)
+
+var wg sync.WaitGroup
+
+func main() {
+	wg.Add(1)
+	go f1(jobChan)
+	wg.Add(24)
+	for i := 0; i < 24; i++ {
+		go f2(jobChan, resultChan)
+	}
+	for result := range resultChan {
+		fmt.Printf("value:%d sum:%d\n", result.job.v, result.sum)
+	}
+	wg.Wait()
+}
+
+type job struct {
+	v int64
+}
+
+type result struct {
+	job *job
+	sum int64
+}
+
+var jobChan = make(chan *job, 100)
+var resultChan = make(chan *result, 100)
+
+func f1(zl chan<- *job) {
+	defer wg.Done()
+	for {
+		x := rand.Int63()
+		newJob := &job{
+			v: x,
+		}
+		zl <- newJob
+		time.Sleep(time.Millisecond * 500)
+	}
+}
+
+func f2(zl <-chan *job, resultChan chan<- *result) {
+	defer wg.Done()
+	for {
+		job := <-zl
+		sum := int64(0)
+		n := job.v
+		for n > 0 {
+			sum += n % 10
+			n = n / 10
+		}
+		newResult := &result{
+			job: job,
+			sum: sum,
+		}
+		resultChan <- newResult
+	}
+}
+```
+
+---
+
+## select
+
+随机的执行下面的某个通道操作
+
+```go
+select {
+    case <-c1:
+    ...
+    case data := <-c2:
+    ...
+    case c3 <- data:
+    ...
+    default:
+    默认操作
+}
+```
+
+> type []int != type []interface{}
+>
+> 因为它们的内存模型
+>
+> Pointer 指针
+
+> int 的内存模型：{1, 2, 3}
+>
+> interface 的内存模型：{{T, Pointer}, {T, Pointer}}
+
+---
+
+## 并发安全和锁
+
+比如当两个 `goroutine` 操作一个全局变量时会产生问题，而这时我们可以给他一个锁，当一个 `goroutine` 操作完成后释放，另一个 `goroutine` 才启动。
+
+**互斥锁**
+
+可以保证同一时刻只有一个 `goroutine` 可以操作全局变量，多个 `goroutine` 等待一个锁时，唤醒的策略是随机的。
+
+```go
+func main() {
+	wg.Add(2)
+	go addition()
+	go addition()
+	wg.Wait()
+	fmt.Println(x)
+}
+
+var (
+	x int64
+	wg 	sync.WaitGroup
+	lock sync.Mutex    // 互斥锁、只有一个 goroutine 可以获取这个锁
+)
+
+func addition() {
+	for i := 0; i < 5000; i++ {
+		lock.Lock()    // 加锁
+		x = x + 1
+		lock.Unlock()  // 释放锁
+	}
+	wg.Done()
+}
+```
+
+**读写互斥锁**
+
+当读多写少时使用，读完再写。
+
+```go
+func main()  {
+	start := time.Now()
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go read()
+	}
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go write()
+	}
+	wg.Wait()
+	end := time.Now()
+	fmt.Println(end.Sub(start))
+}
+
+var (
+	x int64
+	wg sync.WaitGroup
+	lock sync.Mutex
+	rwlock sync.RWMutex
+)
+
+func read() {
+	//lock.Lock()
+	rwlock.RLock()
+	time.Sleep(time.Millisecond)
+	wg.Done()
+	//lock.Unlock()
+	rwlock.RUnlock()
+}
+
+func write()  {
+	//lock.Lock()
+	rwlock.Lock()
+	x = x + 1
+	time.Sleep(time.Millisecond * 10)
+	//lock.Unlock()
+	rwlock.Unlock()
+	wg.Done()
+}
+```
+
+---
+
+**sync.WaitGroup**
+
+```go
+var wg sync.WaitGroup
+wg.Add()   // 计数器 + delta
+wg.Done()  // 计数器 - 1
+wg.Wait()  // 阻塞到计数器变为 0
+```
+
+---
+
+**sync.Once**
+
+我们要确保在某些操作在高并发的场景下只执行一次，例如只加载一次配置文件，只关闭一次通道等。这时可以使用这个方法了。
+
+`sync.Once` 只有一个 `Do` 方法，函数签名如下：
+
+```go
+func (o *Once) Do(f func()) {}
+```
+
+---
+
+**sync.Map**
+
+因为 Go 语言中的 map 不是并发安全的，所以有些场景下可以使用 `sync.Map`
+
+可以开箱即用，不用 make 分配内存。并且读取等方法跟内置的 map 不一样。
+
+-  `Store` ：存储键值对
+
+-  `load` ：根据 key 取值
+
+-  `loadOrStore`：先获取，没有的话保存值
+-  `Delete`：删除
+-  `Range`：遍历
+
+```go
+var SyncMap = sync.Map{}
+Sync.Store(i, v)
+v, _ := SyncMap.Load(i)
+```
+
+---
+
+**原子操作**
+
+atomic 包，只针对基本的数据类型，并发安全的
+
+---
 
