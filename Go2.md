@@ -1412,3 +1412,429 @@ atomic 包，只针对基本的数据类型，并发安全的
 
 ---
 
+## Set
+
+```go
+package mapset
+
+type MapSet map[interface{}]struct{}
+
+// 数据结构经常会遇到的方法：增删查
+// 集合特有的方法：交井差
+
+func NewMapSet(elements ...interface{}) *MapSet {
+	set := make(MapSet)
+	for _, e := range elements {
+		set.Add(e)
+	}
+	return &set
+}
+
+// add
+func (set *MapSet) Add(e interface{}) bool {
+	if _, found := (*set)[e]; found {
+		return false
+	}
+	(*set)[e] = struct{}{}
+	return true
+}
+
+// remove
+func (set *MapSet) Remove(e interface{}) {
+	delete(*set, e)
+}
+
+// contains
+func (set *MapSet) Contains(e interface{}) bool {
+	_, found := (*set)[e]
+	return found
+}
+
+// 查看当前集合的长度
+func (set *MapSet) Cardinatity() int {
+	return len(*set)
+}
+
+// 交集
+func (set *MapSet) Intersect(other *MapSet) *MapSet {
+	newSet := NewMapSet()
+	if set.Cardinatity() < other.Cardinatity() {
+		for _, e := range *set {
+			if _, found := (*other)[e]; found {
+				newSet.Add(e)
+			}
+		}
+	} else {
+		for _, e := range *other {
+			if _, found := (*set)[e]; found {
+				newSet.Add(e)
+			}
+		}
+	}
+	return set
+}
+
+// 并集
+func (set *MapSet) Union(other *MapSet) *MapSet {
+	unionSet := new(MapSet)
+	for _, e := range *set {
+		unionSet.Add(e)
+	}
+	for _, e := range *other {
+		unionSet.Add(e)
+	}
+	return unionSet
+}
+
+// 差集
+func (set *MapSet) Difference(other *MapSet) *MapSet {
+	// set - other
+	differenceSet := NewMapSet()
+	for _, e := range *set {
+		if _, found := (*other)[e]; !found {
+			differenceSet.Add(e)
+		}
+	}
+	return differenceSet
+}
+
+```
+
+>  Github 上有个现成的包 golang-set（主要代码逻辑位置：threadunsafe.go）
+
+---
+
+## socket
+
+**互联网协议**
+
+OSI 七层模型
+
+- 物理层
+- 数据链路层
+- 网络层
+- 传输层
+- 会话层
+- 表示层
+- 应用层
+
+**socket 编程**
+
+TCP/IP 协议
+
+TCP 服务端程序的处理流程：
+
+1. 监听端口
+2. 接收客户端请求建立链接
+3. 创建 `goroutine` 处理链接
+
+### TCP 通信
+
+**server**
+
+```go
+func main() {
+	// 1.开启服务
+	listen, err := net.Listen("tcp", "127.0.0.1:20000")
+	if err != nil {
+		fmt.Printf("listen failed,err:%v\n", err)
+		return
+	}
+	for {
+		// 2.等待客户端来连接
+		conn, err := listen.Accept()
+		if err != nil {
+			fmt.Printf("accept failed, err:%v\n", err)
+			continue
+		}
+		// 3.启动单独的 goroutine 处理连接
+		go process(conn)
+	}
+}
+
+func process(conn net.Conn)  {
+	// 关闭连接
+	defer conn.Close()
+	// 针对当前的连接作数据的发送和接受操作
+	for {
+		reader := bufio.NewReader(conn)
+		var buf [128]byte
+		n, err := reader.Read(buf[:])
+		if err != nil {
+			fmt.Printf("read from failed, err:%v\n", err)
+			break
+		}
+		resv := string(buf[:n])
+		fmt.Printf("接受到的数据:%v\n", resv)
+		conn.Write([]byte("ok")) // 把收到的数据返回给客户端
+	}
+}
+```
+
+**client**
+
+```go
+func main() {
+	// 1.与服务端建立连接
+	conn, err := net.Dial("tcp", "127.0.0.1:20000")
+	if err != nil {
+		fmt.Printf("dial failed, err:%v\n", err)
+		return
+	}
+	// 2.利用该连接进行数据的发送和接收
+	input := bufio.NewReader(os.Stdin)
+	for {
+		s, _ := input.ReadString('\n')
+		s = strings.TrimSpace(s)
+		if strings.ToUpper(s) == "Q" {
+			return
+		}
+		// 给服务端发消息
+		_, err := conn.Write([]byte(s))
+		if err != nil {
+			fmt.Printf("send failed, err:%v\n", err)
+			return
+		}
+		// 从服务端接收回复的消息
+		var buf [1024]byte
+		n, err := conn.Read(buf[:])
+		if err != nil {
+			fmt.Printf("read failed,err:%v\n", err)
+			return
+		}
+		fmt.Println("收到服务端回复:", string(buf[:n]))
+	}
+}
+```
+
+> client：客户，Dial：拨号
+
+**黏包示例**
+
+为啥会出现黏包？不知道传输的数据边界（数据到那个字节结束）
+
+解决方法：
+
+比如可以给传输的数据前 4 节填写包的大小，这样接收方可以先读前 4 节，明白了数据占用了几个字节。让后动态的读它的全部字节。这样就知道了这个消息数据的边界。
+
+---
+
+### UDP 通信
+
+与 TCP 协议的区别：
+
+- 不是基于连接的协议，所以比 TCP 协议更快。用于直播，网络会议等
+- 缺点：不可靠，不安全
+
+> 网络通信都是使用 byte 进行通信
+
+**server**
+
+```go
+func main() {
+	listen, err := net.ListenUDP("udp", &net.UDPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 30000,
+	})
+	if err != nil {
+		fmt.Printf("listen failed:%v\n", err)
+	}
+	defer listen.Close()
+	for {
+		var buf [1024]byte
+		n, adder, err := listen.ReadFromUDP(buf[:])
+		if err != nil {
+			fmt.Printf("read from failed, err:%v\n", err)
+			return
+		}
+		fmt.Println("接收到的数据:", string(buf[:n]))
+		_, err = listen.WriteToUDP(buf[:n], adder)
+		if err != nil {
+			fmt.Printf("WriteTo from failed, err:%v\n", err)
+		}
+	} 
+}
+```
+
+**client**
+
+```go
+func main() {
+	c, err := net.DialUDP("udp", nil, &net.UDPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 30000,
+	})
+	if err != nil {
+		fmt.Printf("dial from failed, err:%v\n", err)
+		return
+	}
+	defer c.Close()
+	// 发送数据
+	input := bufio.NewReader(os.Stdin)
+	for {
+		s, _ := input.ReadString('\n')
+		_, err = c.Write([]byte(s))
+		if err != nil {
+			fmt.Printf("send to server failed, err:%v\n", err)
+			return
+		}
+		// 接收数据
+		var buf [1024]byte
+		n, addr, err := c.ReadFromUDP(buf[:])
+		if err != nil {
+			fmt.Printf("recv from udp failed, err:%v\n", err)
+			return
+		}
+		fmt.Printf("from:%v data:%v", addr, string(buf[:n]))
+	}
+}
+```
+
+---
+
+## 单元测试很重要
+
+```shell
+$ go test
+```
+
+使用 `go test` 命令测试文件，约定在包目录中以 `_test.go` 结尾的文件都是 `go test` 的一部分，不会被
+
+`go build` 编译到最终的可执行文件中。
+
+在测试文件 `*_test.go` 中有三种类型的函数：
+
+1. 单元测试函数
+2. 基准测试函数
+3. 示例函数 
+
+|   类型   |         格式          |              作用              |
+| :------: | :-------------------: | :----------------------------: |
+| 测试函数 |   函数名前缀为Test    | 测试程序的一些逻辑行为是否正确 |
+| 基准函数 | 函数名前缀为Benchmark |         测试函数的性能         |
+| 示例函数 |  函数名前缀为Example  |       为文档提供示例文档       |
+
+`go test`命令会遍历所有的`*_test.go`文件中符合上述命名规则的函数，然后生成一个临时的main包用于调用相应的测试函数，然后构建并运行、报告测试结果，最后清理测试中生成的临时文件。
+
+**测试函数**
+
+```go
+func TestName(t *testeing.T){
+    // do something
+}
+```
+
+其中参数`t`用于报告测试失败和附加的日志信息。 `testing.T`的拥有的方法如下：
+
+```go
+func (c *T) Error(args ...interface{})
+func (c *T) Errorf(format string, args ...interface{})
+func (c *T) Fail()
+func (c *T) FailNow()
+func (c *T) Failed() bool
+func (c *T) Fatal(args ...interface{})
+func (c *T) Fatalf(format string, args ...interface{})
+func (c *T) Log(args ...interface{})
+func (c *T) Logf(format string, args ...interface{})
+func (c *T) Name() string
+func (t *T) Parallel()
+func (t *T) Run(name string, f func(t *T)) bool
+func (c *T) Skip(args ...interface{})
+func (c *T) SkipNow()
+func (c *T) Skipf(format string, args ...interface{})
+func (c *T) Skipped() bool
+```
+
+---
+
+**示例**
+
+```go
+func TestSplit(t *testing.T) {
+	got := Split("tom", "o")
+	want := []string{"t", "m"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("want:%v got:%v", want, got)
+	}
+}
+```
+
+**测试组**
+
+我们现在还想要测试一下`split`函数对中文字符串的支持，这个时候我们可以再编写一个`TestChineseSplit`测试函数，但是我们也可以使用如下更友好的一种方式来添加更多的测试用例。
+
+```go
+func TestSplit(t *testing.T) {
+   // 定义一个测试用例类型
+	type test struct {
+		input string
+		sep   string
+		want  []string
+	}
+	// 定义一个存储测试用例的切片
+	tests := []test{
+		{input: "a:b:c", sep: ":", want: []string{"a", "b", "c"}},
+		{input: "a:b:c", sep: ",", want: []string{"a:b:c"}},
+		{input: "abcd", sep: "bc", want: []string{"a", "d"}},
+		{input: "沙河有沙又有河", sep: "沙", want: []string{"河有", "又有河"}},
+	}
+	// 遍历切片，逐一执行测试用例
+	for _, tc := range tests {
+		got := Split(tc.input, tc.sep)
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("excepted:%v, got:%v", tc.want, got)
+		}
+	}
+}
+```
+
+> t.Run 
+>
+> go test -v 可以看详细的测试结果
+>
+> go test -run=chinese 指定某个测试再跑一下
+>
+> go test -cover 测试覆盖率， 测试覆盖率是你的代码被测试套件覆盖的百分比。通常我们使用的都是语句的覆盖率，也就是在测试中至少被运行一次的代码占总代码的比例。 
+>
+> go test -cover -coverprofile=c.out：在当前的文件夹下生成一个 c.out 文件，更好的可视化测试覆盖率
+>
+> go tool cover -html=c.out：把 c.out 文件按照 html 的格式打开
+
+---
+
+**性能基准测试**
+
+调用你的函数 100k 次 1000k 看看性能
+
+```go
+func BenchmarkSplit(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        Split("tom", "o")
+    } 
+}
+```
+
+> go test -bench=Split 运行性能基准测试
+>
+> 输出值：干活的操作系统的进程数，执行的次数，每次操作花费的时间
+>
+> go test -bench=Split -benchmem 查看内存相关的数据
+
+```go
+// 改良后的代码
+func Split(s, sep string) (ret []string) {
+    // 只在代码开头位置申请一次内存
+	ret = make([]string, 0, strings.Count(s, sep)+1)
+	idx := strings.Index(s, sep)
+	for idx > -1 {
+		ret = append(ret, s[:idx])
+		s = s[idx+len(sep):]
+		idx = strings.Index(s, sep)
+	}
+	ret = append(ret, s)
+	return
+}
+```
+
+---
+
