@@ -251,6 +251,8 @@ func init() {
 
 使用 `os` ，`os.Open` 打开文件，返回一个 `*File` 和 `err`。对得到的实例使用 `close()` 方法能关闭文件。
 
+> 只是单纯的读的操作
+
 ```go
 func main() {
 	fileObj, err := os.Open("../txt/1.txt")
@@ -355,10 +357,12 @@ func main() {
 	}
 	defer file.Close()
 	str := "hello 沙河"
-	file.Write([]byte(str))       //写入字节切片数据
+	file.Write([]byte(str))         //写入字节切片数据
 	file.WriteString("hello 小王子") //直接写入字符串数据
 }
 ```
+
+> os.ModePerm go 语言提供的常数：0777
 
 **bufio.NewWriter**
 
@@ -425,6 +429,80 @@ func fn() {
 
 ---
 
+**文件操作**
+
+```go
+fileInfo, err := os.Stat("../txt/1.txt")
+if err != nil {
+    fmt.Println("error")
+}
+fileInfo.name        // 文件名字
+fileInfo.Size()      // 文件大小
+fileInfo.IsDir       // 是否是目录
+fileInfo.ModTime()   // 修改时间
+fileInfo.Mode()      // 权限、符号表示和八进制表示
+```
+
+**文件路径**
+
+- 相对路径：相对于当前工程的路径
+- 绝对路径：从根目录开始的路径
+- `.` 当前目录，`..` 上层目录  
+
+```go
+filepath.Abs(filepath1) // 获取绝对路径
+path.Join(file, "..")   // 获取父目录
+```
+
+**创建目录**
+
+```go
+err := os.Mkdir("目录的路径和目录", os.ModePerm/*权限*/)
+err := os.MkdirAll("目录的路径和目录", os.ModePerm)      // 创建多层文件夹
+```
+
+**创建文件**
+
+```go
+file, err := os.Create("路径和文件")
+```
+
+**删文件和目录**
+
+慎用，删错了就完了
+
+得把文件内的内容和目录内的文件清空才能删除
+
+```go
+err := os.Remove("路径")
+err := os.Remove("路径") // 删除嵌套的多个目录
+```
+
+**遍历文件夹**
+
+```go
+func listFile(dirname string, level int) {
+	// level: 记录当前文件的层次、让后可以生成带有层次感的符号
+	s := "|--"
+	for i := 0; i < level; i++ {
+		s = "|  " + s
+	}
+	fileInfo, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, fi := range fileInfo {
+		filename := dirname + "/" + fi.Name()
+		fmt.Printf("%s%s\n", s, filename)
+		if fi.IsDir() {
+			listFile(filename, level+1)
+		}
+	}
+}
+```
+
+---
+
 ## time 包
 
  time包提供了时间的显示和测量用的函数。日历的计算采用的是公历。
@@ -446,6 +524,10 @@ func timeDemo() {
 	second := now.Second() //秒
 	fmt.Printf("%d-%02d-%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second)
 }
+```
+
+```go
+time.Date(2008, 7, 15, 16, 30, 28, 0, time.Local) // 获得指定时间
 ```
 
 **时间戳**
@@ -588,8 +670,11 @@ func formatDemo() {
 **解析字符串格式的时间**
 
 ```go
+time, err := time.Parse("2006-7-27", s3)
+```
+
+```go
 now := time.Now()
-fmt.Println(now)
 // 加载时区
 loc, err := time.LoadLocation("Asia/Shanghai")
 if err != nil {
@@ -606,7 +691,22 @@ fmt.Println(timeObj)
 fmt.Println(timeObj.Sub(now))
 ```
 
+````go
+y, m, d := t1.Date() // 年月日
+h, m, s := t1.Date() // 时分秒
+````
+
 > time.Sleep(100 * time.Millisecond)：表示阻塞 100 秒
+
+---
+
+**time 包通道相关操作**
+
+```go
+timer := time.NewTimer(3*time.Second) // 定时器、三秒后执行
+ch := timer.C                         // 三秒钟后的时间
+timer.Stop()                          // 取消计时器 
+```
 
 ---
 
@@ -737,6 +837,20 @@ func main() {
 }
 ```
 
+```go
+func main() {
+    var num float64 = 1.23
+    // "接口类型变量" -> "反射类型对象"
+    value := reflect.ValueOf(num)
+    
+    // "反射类型对象" -> "接口类型变量"
+    converValue := value.Interface().(float64)
+    fmt.Println(converValue)        //1.23
+}
+```
+
+
+
 `isNil()` 常用于判断指针是否为空，`isValid()` 常用于判断返回值是否有效
 
 ---
@@ -821,9 +935,25 @@ floatV, err := strconv.Float("3.14")
 
 **并发和并行**
 
-并发：同一时间段内执行多个任务。
+并发（Concurrency）：同一时间段内执行多个任务。
 
-并行：同一时刻执行多个任务。
+- 跑步和系鞋带
+
+并行（Parallelism）：同一时刻执行多个任务。
+
+- 跑步和听音乐
+
+> 串行：一个执行完了执行另一个
+>
+> 并行：同意时刻执行多个任务
+>
+> 并发：一个任务还没执行完毕前执行另一个任务，这样切换执行
+
+**进程（Process）、线程（Thread）、协程（Coroutine，也叫轻量级线程）**
+
+- 进程：正在执行的程序
+- 线程：轻量级进程
+- 协程：用户态的轻量级线程，也叫做微线程
 
 Go 语言的并发通过 `goroutine` 实现。`goroutine` 类似于线程，属于用户态的线程，我们可以根据需要创建成千上万个 
 
@@ -843,7 +973,7 @@ Go 语言还提供 `channel` 在多个 `goroutine` 间进行通信。`goroutine`
 // 程序启动后会创建一个主 goroutine 去执行
 func main() {
     // go：单独开启一个 goroutine 执行该函数
-	go hello()
+	go hello() // goroutine 后面的函数是没有返回值的、有也会被舍弃
 	fmt.Println("main")
 }
 
@@ -915,6 +1045,13 @@ func fn(i int) {
 }
 ```
 
+```go
+// wg.Add(-1) == wg.Done
+// 所以 wg.Add(-2) 表示从计数器里减 2
+```
+
+虽然多个 `goroutine` 的执行顺序是不一样的，但是可以使用 `time.Sleep(time.Scound)` 等方法调整它们的顺序。
+
 ---
 
 ## Goroutine 什么时候结束？
@@ -982,7 +1119,7 @@ func main() {
 
 ---
 
-## goroutin 调度模型 `GMP`
+## Goroutin 调度模型 `GMP`
 
 **`goroutine` 和 线程的关系：**
 
@@ -994,7 +1131,7 @@ func main() {
 
 - `G`很好理解，就是个goroutine的，里面除了存放本goroutine信息外 还有与所在P的绑定等信息。
 - `P`管理着一组goroutine队列，P里面会存储当前goroutine运行的上下文环境（函数指针，堆栈地址及地址边界），P会对自己管理的goroutine队列做一些调度（比如把占用CPU时间较长的goroutine暂停、运行后续的goroutine等等）当自己的队列消费完了就去全局队列里取，如果全局队列里也消费完了会去其他P的队列里抢任务。
-- `M（machine）`是Go运行时（runtime）对操作系统内核线程的虚拟， M与内核线程一般是一一映射的关系， 一个groutine最终是要放到M上执行的；
+- `M（machine）`是Go运行时（runtime）对操作系统内核线程的虚拟， M与内核线程一般是一一映射的关系， 一个groutine最终是要放到M上执行的
 
 P与M一般也是一一对应的。他们关系是： P管理着一组G挂载在M上运行。当一个G长久阻塞在一个M上时，runtime会新建一个M，阻塞G所在的P会把其他的G 挂载在新建的M上。当旧的G阻塞完成或者认为其已经死掉时 回收旧的M。
 
@@ -1066,6 +1203,15 @@ Go语言中的操作系统线程和goroutine的关系：
 >
 > `goroutine` 的初始大小是 2k
 
+**线程模型**
+
+- 内核级线程模型
+  + 一对一关系、一个用户级线程映射到一个内核线程
+- 用户级线程模型 
+  + 多对一、多个用户级线程映射到一个内核线程
+- 两级线程模型
+  + 多对多、多个用户级线程映射到多个内核线程
+
 ---
 
 ## Channel
@@ -1105,7 +1251,8 @@ c <- 10
 
 ```go
 // 从通道接受一个值
-v := <-c
+// ok 为 true 表示从通道中获取的了值、为 false 表示通道已关闭从通道中获取到了类型的零值
+v,ok := <-c
 
 // 丢弃值、不接受值
 <-c
@@ -1114,10 +1261,13 @@ v := <-c
 ==关闭==
 
 ```go
+// 例：range 获取通道内的值时会产生死锁（获取没有对应的输入）这时需使用 close() 来关闭通道
 close(c)
 ```
 
 **无缓冲区的 channel**
+
+> 阻塞：读和写是阻塞的，你不写就一直等着你写，你写完后才输出
 
 ```go
 var wg sync.WaitGroup
@@ -1139,9 +1289,9 @@ func main() {
 **有缓冲区的 channel**
 
 ```go
-// 不会阻塞
+// 不会阻塞、队列（先进先出）
 func main() {
-	c := make(chan int, 10)
+    c := make(chan int, 10) // len:0、cap:10
 	c <- 10
 }
 ```
@@ -1252,7 +1402,7 @@ func f2(zl <-chan *job, resultChan chan<- *result) {
 
 ## select
 
-随机的执行下面的某个通道操作
+随机的执行下面的某个（只执行某一个）通道操作，当 case 都阻塞时执行 default 
 
 ```go
 select {
@@ -1312,9 +1462,49 @@ func addition() {
 }
 ```
 
-**读写互斥锁**
+```go
+var (
+	ticket = 10
+	wg     sync.WaitGroup
+	mutex  sync.Mutex
+)
+
+func main() {
+	wg.Add(4)
+	go saleTickets("a")
+	go saleTickets("b")
+	go saleTickets("c")
+	go saleTickets("d")
+	wg.Wait()
+}
+
+func saleTickets(name string) {
+	defer wg.Done()
+	for {
+        // 互斥锁
+		mutex.Lock()
+		if ticket > 0 {
+			fmt.Println(name, "售出", ticket)
+			ticket--
+		} else {
+			mutex.Unlock()
+			fmt.Println("无票可买")
+			break
+		}
+        // 解锁
+		mutex.Unlock()
+	}
+}
+```
+
+**读写锁**
 
 当读多写少时使用，读完再写。
+
+基本遵循两大原则：
+
+1. 可以随便读。多个 goroutine 同时读。
+2. 写的时候，啥都不能干。不能读，也不能写。
 
 ```go
 func main()  {
@@ -1333,9 +1523,9 @@ func main()  {
 }
 
 var (
-	x int64
-	wg sync.WaitGroup
-	lock sync.Mutex
+	x      int64
+	wg     sync.WaitGroup
+	lock   sync.Mutex
 	rwlock sync.RWMutex
 )
 
@@ -1837,4 +2027,66 @@ func Split(s, sep string) (ret []string) {
 ```
 
 ---
+
+## runtime
+
+> 类似于 Java 语言中的虚拟机
+
+负责内存分配，垃圾回收，栈的回收，Goroutine，channel，切片，反射等
+
+```go
+func main() {
+	fmt.Println(runtime.GOROOT())        // go 的安装目录
+	fmt.Println(runtime.GOOS)            // 现在的操作系统平台
+    fmt.Println(runtime.NumCPU)          // 获取逻辑 CPU 数量
+    runtime.GOMAXPROCS(runtime.NumCPU()) // 设置逻辑 CPU 的数量、返回值是上一次设置的数量
+}
+
+// 最好是程序运行前设置逻辑 CPU 的数量、1.8 版本后不需要这样设置了
+func init() {
+    runtime.GOMAXPROCS(runtime.NumCPU())
+}
+```
+
+```go
+// 当一个 Goroutime 堵塞时、go 会把在跟它一个线程上的 Goroutine 移植到另一个线程上
+func main() {
+    go func() {
+        for i := 0; i < 5; i++ {
+            fmt.Println("goroutine")
+        }
+    }
+    for i := 0; i < 4; i++ {
+        // 让出时间片让别的 goroutine 执行
+        runtime.Gosched()
+        fmt.Println("main")
+    }
+}
+```
+
+```go
+func main() {
+    go func() {
+        fmt.Println("goroutine start")
+        fn()
+        fmt.Println("goroutine end") // 不会打印、已经 runtime.Goexit()
+    }()
+    time.Sleep(time.Second*3)
+}
+func fn() {
+    defer fmt.Println("defer")
+    runtime.Goexit()           // 终止当前的 goroutine、 defer 还是会执行
+    fmt.Println("fn function")
+}
+```
+
+---
+
+## 临界资源安全问题
+
+**临界资源**：多个 goroutine 可以访问的资源
+
+当多个 goroutine 共享同一个内存会出问题，使用锁来解决这个问题
+
+> 不要以共享内存的方式去通信，而要以通信的方式共享内存
 
