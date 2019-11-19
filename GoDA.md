@@ -164,7 +164,7 @@ func (this *Queue) AddQueue(v int) (err error) {
 	}
 	this.rear++
 	this.array[this.rear] = v
-	return
+	return nil
 }
 
 // 取数据
@@ -185,15 +185,17 @@ func (this *Queue) ShowQueue() {
 ```
 
 > 小结：上面代码实现了队列结构，但是没有有效的利用数组的空间（随者取数据前端的空间会被浪费掉），为了解决这个问题我们可以使用链表实现队列
+>
+> `fmt.Scanln(&v)`：获取从终端输入的值，放到 v 变量
 
 **数组模拟环形队列**
 
 实现思路
 
-- (tail+ 1) % maxSize = 0 ：表示队列已满
+- `(tail+ 1) % maxSize = head` ：表示队列已满
 - 队列的容量空出一个作为约定
-- 初始化：tail= 0,  head = 0
-- 数组值的个数：(tail + maxSize - head) % maxSize
+- 初始化：`tail= 0,  head = 0`
+- 数组值的个数：`(tail + maxSize - head) % maxSize`
 
 ```go
 type circleQueue struct {
