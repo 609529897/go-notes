@@ -329,3 +329,452 @@ func delRow(id int) {
 
 ---
 
+**MySQL 预处理**
+
+把命令部分发给 mysql 进行预处理，等待接收参数
+
+优化重复执行 SQL 的方法，可以提升服务器的性能，提前让服务器编译，一次编译多次执行，节省后续编译的成本。避免 SQL 注入问题
+
+```go
+func (db *DB) Prepare(query string)(*Stmt, error)
+```
+
+会把 SQL 语句先发给服务端，返回一个准备好的状态用于之后的查询和命令。返回值可以同时执行多个查询和命令。
+
+```go
+var db *sql.DB
+
+func prepareQuery() {
+	sqlStr := "select id, name age from user where id > ?"
+    // 预处理
+	stmt, err := db.Prepare(sqlStr)
+	if err != nil {
+		fmt.Printf("prepare failed:%v\n", err)
+	}
+	defer stmt.Close()
+    rows, err := stmt.Query(0)
+    ...
+    defer rows.Close()
+    for rows.Next() {
+        ...
+    }
+}
+```
+
+---
+
+**事务**
+
+```go
+// 开始事务
+func (db *DB) Begin(*Tx, error)
+
+// 提交事务
+func (tx *Tx) Commit() error
+
+// 回滚事务
+func (tx *Tx) Rollback() error
+```
+
+```go
+func transactionDemo() {
+	tx, err := db.Begin() // 开启事务
+	if err != nil {
+		if tx != nil {
+			tx.Rollback() // 回滚
+		}
+		fmt.Printf("begin trans failed, err:%v\n", err)
+		return
+	}
+	sqlStr1 := "Update user set age=30 where id=?"
+	_, err = tx.Exec(sqlStr1, 2)
+	if err != nil {
+		tx.Rollback() // 回滚
+		fmt.Printf("exec sql1 failed, err:%v\n", err)
+		return
+	}
+	sqlStr2 := "Update user set age=40 where id=?"
+	_, err = tx.Exec(sqlStr2, 4)
+	if err != nil {
+		tx.Rollback() // 回滚
+		fmt.Printf("exec sql2 failed, err:%v\n", err)
+		return
+	}
+	err = tx.Commit() // 提交事务
+	if err != nil {
+		tx.Rollback() // 回滚
+		fmt.Printf("commit failed, err:%v\n", err)
+		return
+	}
+	fmt.Println("exec trans success!")
+}
+```
+
+---
+
+**sqlx 的使用**
+
+第三方库 `sql` 能够简化操作，提高开发效率
+
+```shell
+$ go get github.com/jmoiron/sqlx
+```
+
+```go
+// 连接
+db, err = sqlx.Connect("mysql", dsn)
+
+// 查询
+err := db.Get(&u, sqlStr, 1)
+
+// 多行查询
+err := db.Select(&users, sqlStr, 0)
+
+// 插入、更新和删一样
+```
+
+```go
+// 事务
+func transactionDemo() {
+	tx, err := db.Beginx() // 开启事务
+	if err != nil {
+		if tx != nil {
+			tx.Rollback()
+		}
+		fmt.Printf("begin trans failed, err:%v\n", err)
+		return
+	}
+	sqlStr1 := "Update user set age=40 where id=?"
+	tx.MustExec(sqlStr1, 2)
+	sqlStr2 := "Update user set age=50 where id=?"
+	tx.MustExec(sqlStr2, 4)
+	err = tx.Commit() // 提交事务
+	if err != nil {
+		tx.Rollback() // 回滚
+		fmt.Printf("commit failed, err:%v\n", err)
+		return
+	}
+	fmt.Println("exec trans success!")
+}
+```
+
+**占位符语法**
+
+|   数据库   |  占位符语法  |
+| :--------: | :----------: |
+|   MySQL    |     `?`      |
+| PostgreSQL | `$1`, `$2`等 |
+|   SQLite   |  `?` 和`$1`  |
+|   Oracle   |   `:name`    |
+
+---
+
+---
+
+**SQL 注入**：**我们任何时候都不应该让客户拼接SQL语句！**
+
+---
+
+## Redis
+
+KV 数据库，支持五种数据结构
+
+Redis 应用场景：
+
+- 缓存系统，减轻主数据库（MySQL）的压力。
+- 计数场景，比如微博，抖音中的关注数和粉丝数。
+- 热门排行榜，需要排序的场景特别适合使用 ZSET。
+- 利用 LIST 可以实现队列的功能。
+
+**Go 操作 Redis**
+
+```shell
+# 使用第三方包
+$ go get -u githun.com/go-redis/redis
+```
+
+> 荐书：《Redis 实战》
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/go-redis/redis"
+)
+
+var redisDB *redis.Client
+
+func main() {
+	err := initRedis()
+	if err != nil {
+		fmt.Printf("connect redis failed, err:%v\n", err)
+	}
+	fmt.Println("连接数据库成功！")
+}
+
+func initRedis() (err error) {
+	redisDB = redis.NewClient(&redis.Options{
+		Addr:     "127.0.0.1:6379",
+		Password: "",
+		DB:       0,
+	})
+	_, err = redisDB.Ping().Result()
+	return
+}
+```
+
+**基本使用**
+
+`set` / `get`
+
+```go
+func redisExample() {
+	err := redisdb.Set("score", 100, 0).Err()
+	if err != nil {
+		fmt.Printf("set score failed, err:%v\n", err)
+		return
+	}
+
+	val, err := redisdb.Get("score").Result()
+	if err != nil {
+		fmt.Printf("get score failed, err:%v\n", err)
+		return
+	}
+	fmt.Println("score", val)
+
+	val2, err := redisdb.Get("name").Result()
+	if err == redis.Nil {
+		fmt.Println("name does not exist")
+	} else if err != nil {
+		fmt.Printf("get name failed, err:%v\n", err)
+		return
+	} else {
+		fmt.Println("name", val2)
+	}
+}
+```
+
+`zset`
+
+```go
+func redisExample2() {
+	zsetKey := "language_rank"
+	languages := []*redis.Z{
+		&redis.Z{Score: 90.0, Member: "Golang"},
+		&redis.Z{Score: 98.0, Member: "Java"},
+		&redis.Z{Score: 95.0, Member: "Python"},
+		&redis.Z{Score: 97.0, Member: "JavaScript"},
+		&redis.Z{Score: 99.0, Member: "C/C++"},
+	}
+	// ZADD
+	num, err := redisdb.ZAdd(zsetKey, languages...).Result()
+	if err != nil {
+		fmt.Printf("zadd failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("zadd %d succ.\n", num)
+
+	// 把Golang的分数加10
+	newScore, err := redisdb.ZIncrBy(zsetKey, 10.0, "Golang").Result()
+	if err != nil {
+		fmt.Printf("zincrby failed, err:%v\n", err)
+		return
+	}
+	fmt.Printf("Golang's score is %f now.\n", newScore)
+
+	// 取分数最高的3个
+	ret, err := redisdb.ZRevRangeWithScores(zsetKey, 0, 2).Result()
+	if err != nil {
+		fmt.Printf("zrevrange failed, err:%v\n", err)
+		return
+	}
+	for _, z := range ret {
+		fmt.Println(z.Member, z.Score)
+	}
+
+	// 取95~100分的
+	op := &redis.ZRangeBy{
+		Min: "95",
+		Max: "100",
+	}
+	ret, err = redisdb.ZRangeByScoreWithScores(zsetKey, op).Result()
+	if err != nil {
+		fmt.Printf("zrangebyscore failed, err:%v\n", err)
+		return
+	}
+	for _, z := range ret {
+		fmt.Println(z.Member, z.Score)
+	}
+}
+```
+
+---
+
+## NSQ
+
+NSQ 是目前比较流行的一个分布式消息队列。
+
+**介绍**：
+
+1. NSQ 提倡分布式和分散的拓扑，没有单点故障，支持容器和高可用性，并提供可靠的消息交付保证。
+2. NSQ 支持横向扩展，没有任何集中式管理。
+3. NSQ 易于配置和部署，并且内置了管理界面。
+
+**应用场景**：
+
+异步处理：利用消息队列把业务流程中的非常关键流程异步化，从而显著降低业务请求的响应时间
+
+应用解耦：通过使用消息队列将不同的业务逻辑解耦，降低系统间耦合。后续有其他业务要使用订单数据可直接订阅消息队列，提高系统的灵活性。
+
+流量削峰：类似秒杀（大秒）等场景下，某一时刻可能会产生大量的请求，使用消息队列能够为后端处理提供一定的缓冲区，保证后端服务的稳定性。
+
+> 消息队列是啥？
+
+---
+
+**NSQ 组件**
+
+```bash
+nsqdlookupd.exe
+```
+
+默认在本机的 `127.0.0.1:4160` 启动
+
+```bash
+nsqd.exe -broadcast-address=127.0.0.1 -lookupd-tcp-address=127.0.0.1:4160
+```
+
+**Go 操作 NSQ**
+
+安装
+
+```bash
+$ go get -u github.com/nsqio/go-nsq
+```
+
+生产者
+
+```go
+// nsq_producer/main.go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/nsqio/go-nsq"
+)
+
+// NSQ Producer Demo
+
+var producer *nsq.Producer
+
+// 初始化生产者
+func initProducer(str string) (err error) {
+	config := nsq.NewConfig()
+	producer, err = nsq.NewProducer(str, config)
+	if err != nil {
+		fmt.Printf("create producer failed, err:%v\n", err)
+		return err
+	}
+	return nil
+}
+
+func main() {
+	nsqAddress := "127.0.0.1:4150"
+	err := initProducer(nsqAddress)
+	if err != nil {
+		fmt.Printf("init producer failed, err:%v\n", err)
+		return
+	}
+
+	reader := bufio.NewReader(os.Stdin) // 从标准输入读取
+	for {
+		data, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Printf("read string from stdin failed, err:%v\n", err)
+			continue
+		}
+		data = strings.TrimSpace(data)
+		if strings.ToUpper(data) == "Q" { // 输入Q退出
+			break
+		}
+		// 向 'topic_demo' publish 数据
+		err = producer.Publish("topic_demo", []byte(data))
+		if err != nil {
+			fmt.Printf("publish msg to nsq failed, err:%v\n", err)
+			continue
+		}
+	}
+}
+```
+
+消费者
+
+```go
+// nsq_consumer/main.go
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/nsqio/go-nsq"
+)
+
+// NSQ Consumer Demo
+
+// MyHandler 是一个消费者类型
+type MyHandler struct {
+	Title string
+}
+
+// HandleMessage 是需要实现的处理消息的方法
+func (m *MyHandler) HandleMessage(msg *nsq.Message) (err error) {
+	fmt.Printf("%s recv from %v, msg:%v\n", m.Title, msg.NSQDAddress, string(msg.Body))
+	return
+}
+
+// 初始化消费者
+func initConsumer(topic string, channel string, address string) (err error) {
+	config := nsq.NewConfig()
+	config.LookupdPollInterval = 15 * time.Second
+	c, err := nsq.NewConsumer(topic, channel, config)
+	if err != nil {
+		fmt.Printf("create consumer failed, err:%v\n", err)
+		return
+	}
+	consumer := &MyHandler{
+		Title: "沙河1号",
+	}
+	c.AddHandler(consumer)
+
+	// if err := c.ConnectToNSQD(address); err != nil { // 直接连NSQD
+	if err := c.ConnectToNSQLookupd(address); err != nil { // 通过lookupd查询
+		return err
+	}
+	return nil
+
+}
+
+func main() {
+	err := initConsumer("topic_demo", "first", "127.0.0.1:4161")
+	if err != nil {
+		fmt.Printf("init consumer failed, err:%v\n", err)
+		return
+	}
+	c := make(chan os.Signal)        // 定义一个信号的通道
+	signal.Notify(c, syscall.SIGINT) // 转发键盘中断信号到c
+	<-c                              // 阻塞
+}
+```
+
+---
+
