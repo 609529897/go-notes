@@ -122,7 +122,7 @@ for i, valNode := range sparseArr {
 
 - 先进先出
 
-**数组模拟队列**
+### 数组模拟队列
 
 实现思路
 
@@ -188,7 +188,7 @@ func (this *Queue) ShowQueue() {
 >
 > `fmt.Scanln(&v)`：获取从终端输入的值，放到 v 变量
 
-**数组模拟环形队列**
+### 数组模拟环形队列
 
 实现思路
 
@@ -293,7 +293,7 @@ type HeroNode struct {
 // 1.给链表插入节点
 // 在单链表的最后一位添加
 func InsertHeroNode(head, newHeroNode *HeroNode) {
-    // 使用 temp 当在临时变量、head 是不可以变换的
+    // 使用 temp 当做临时变量、head 是不可以变换的
 	temp := head
 	for {
 		if temp.next == nil { // 表示找到最后
@@ -316,6 +316,7 @@ func ListHeroNode(head *HeroNode) {
 		fmt.Printf("[%d , %s , %s ] => ", temp.next.no, temp.next.name, temp.next.nickname)
 		temp = temp.next
 		if temp.next == nil {
+            // 跳出 for 循环
 			break
 		}
 	}
@@ -340,7 +341,6 @@ func InsertHeroNode1(head, newHeroNode *HeroNode) {
 	}
 	if !flag {
 		fmt.Println("对不起，已经存在此 no:", newHeroNode.no)
-		return
 	} else {
         // 把大的放到后面、把自己放到以前大的位置
 		newHeroNode.next = temp.next
@@ -439,7 +439,6 @@ func InsertHeroNode1(head, newHeroNode *HeroNode) {
 		fmt.Println("对不起，已经存在此 no:", newHeroNode.no)
 		return
 	} else {
-		// 把大的放到后面、把自己放到以前大的位置
 		newHeroNode.next = temp.next
 		newHeroNode.pre = temp
 		if temp != nil {
@@ -455,7 +454,6 @@ func InsertHeroNode1(head, newHeroNode *HeroNode) {
 func DelHeroNode(head *HeroNode, id int) {
 	temp := head
 	flag := false
-	// 找到要删除的节点 no, 和 temp 的下一个节点的 no 比较
 	for {
 		if temp.next == nil {
 			break
@@ -475,4 +473,586 @@ func DelHeroNode(head *HeroNode, id int) {
 	}
 }
 ```
+
+---
+
+### 环形链表
+
+单向环形链表
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	head := &CircleSingleLinkedList{}
+	l1 := &CircleSingleLinkedList{no: 1, name: "tom"}
+	InsertItem(head, l1)
+	ListAllItem(head)
+    head = DelItem(head, 1)
+}
+
+type CircleSingleLinkedList struct {
+	no   int
+	name string
+	next *CircleSingleLinkedList
+}
+
+// 1.尾部添加
+func InsertItem(head, newItem *CircleSingleLinkedList) {
+	if head.next == nil {
+		head.no = newItem.no
+		head.name = newItem.name
+		head.next = head
+		return
+	}
+	temp := head
+	for {
+		if temp.next == head {
+			break
+		}
+		temp = temp.next
+	}
+	temp.next = newItem
+	newItem.next = head
+}
+
+// 2.展示链表
+func ListAllItem(head *CircleSingleLinkedList) {
+	temp := head
+	if temp.next == nil {
+		fmt.Println("空")
+		return
+	}
+	for {
+		fmt.Println(temp.no, temp.name)
+		if temp.next == head {
+			break
+		}
+		temp = temp.next
+	}
+}
+
+// 删除
+func DelItem(head *CircleSingleLinkedList, id int) *CircleSingleLinkedList {
+	temp := head
+	helper := head
+	// 空链表
+	if temp.next == nil {
+		fmt.Println("空链表，不能删除")
+		return head
+	}
+	// 只有一个节点
+	if temp.next == head {
+		temp.next = nil
+		return head
+	}
+	for {
+		if helper.next == head {
+			break
+		}
+		helper = helper.next
+	}
+	// 有一个以上节点
+	flag := true
+	for {
+		if temp.next == head {
+			break
+		}
+		if temp.no == id {
+			// 说明删除的是头节点
+			if temp == head {
+				head = head.next
+			}
+			helper.next = temp.next
+			fmt.Printf("ID 为：%d 的节点被干掉\n", id)
+			flag = false
+			break
+		}
+		temp = temp.next     // 比较
+		helper = helper.next // 用来删除
+	}
+	if flag { // 如果 flag 为 true 没有进行过删除操作
+		if temp.no == id {
+			helper.next = temp.next
+			fmt.Printf("ID 为：%d 的节点被干掉\n", id)
+        } else {
+            fmt.Printf("没有 ID 等于: %d 的节点\n", id)
+        }
+	}
+	return head
+}
+```
+
+---
+
+### 约瑟夫问题
+
+使用环形单向链表实现：
+
+```go
+package main
+
+import "fmt"
+
+type Boy struct {
+	No   int
+	Next *Boy
+}
+
+func main() {
+	first := InitBoy(5)
+	ShowBoy(first)
+}
+
+// 1.创建环形链表
+func InitBoy(num int) *Boy {
+	first := &Boy{}
+	curBoy := &Boy{}
+	if num < 1 {
+		fmt.Println("num 的值不对")
+		return first
+	}
+	for i := 1; i <= num; i++ {
+		boy := &Boy{
+			No: i,
+		}
+		if i == 1 { // 第一个小孩
+			first = boy
+			curBoy = boy
+			curBoy.Next = boy // 环形
+		} else {
+			curBoy.Next = boy
+			curBoy = boy
+			curBoy.Next = first
+		}
+	}
+	return first
+}
+
+// 2.显示环形链表[遍历]
+func ShowBoy(first *Boy) {
+	// 辅助指针
+	if first.Next == nil {
+		fmt.Println("空链表")
+		return
+	}
+	curBoy := first
+	for {
+		fmt.Printf("小孩编号=%d ->\n", curBoy.No)
+		if curBoy.Next == first {
+			break
+		}
+        curBoy = curBoy.Next
+	}
+}
+
+// 3.总体逻辑
+func PlayGame(first *Boy, startNo int, countNum int) {
+	if first.Next == nil {
+		fmt.Println("空链表")
+		return
+	}
+	tail := first
+	// 让 tail 走到环形链表的最后一位、删除时用到
+	for {
+		if tail.Next == first { // 最后一项
+			break
+		}
+		tail = tail.Next
+	}
+	for i := 1; i <= startNo-1; i++ {
+		first = first.Next
+		tail = tail.Next
+	}
+	for {
+		// 走到要删除的项
+		for i := 1; i <= countNum-1; i++ {
+			first = first.Next
+			tail = tail.Next
+		}
+		fmt.Printf("小孩编号为 %d 出圈\n", first.No)
+		// 出列逻辑
+		first = first.Next
+		tail.Next = first
+		// tail == first 只有一个小孩
+		if tail == first {
+			break
+		}
+	}
+	fmt.Printf("最后出圈的小孩为 %d 出圈", first.No)
+}
+```
+
+---
+
+## 排序算法
+
+- 冒泡排序（最慢）
+- 选择排序
+- 插入排序
+- 快速排序（最快）
+
+### 选择排序
+
+选择排序属于内部排序法，是从预排序的数据中，按指定的规则选出某一元素，经过和其他元素重整，再依原则交换位置后达到排序的目的。
+
+```go
+func SelectionSort(arr *[5]int) {
+	for i := 0; i < len(*arr)-1; i++ {
+		// 假设 (*arr)[0] 就是最大值
+		max := (*arr)[i]
+		maxIndex := i
+
+		// 遍历 1 -> len(arr)-1 的项进行比较
+		for j := i + 1; j < len(*arr); j++ {
+			if max < (*arr)[j] {
+				max = (*arr)[j]
+				maxIndex = j
+			}
+		}
+		if maxIndex != i {
+			(*arr)[i], (*arr)[maxIndex] = (*arr)[maxIndex], (*arr)[i]
+		}
+		fmt.Printf("第%d次: %v\n", i+1, *arr)
+	}
+}
+```
+
+---
+
+### 插入排序
+
+```go
+func InsertSort(arr *[5]int) {
+	for i := 1; i < len(*arr); i++ {
+		insertVal := arr[i]
+		insertIndex := i - 1
+		// 从大到小
+		for insertIndex >= 0 && arr[insertIndex] < insertVal {
+			arr[insertIndex+1] = arr[insertIndex]
+			insertIndex--
+		}
+		// 插入
+		if insertIndex+1 != i {
+			arr[insertIndex+1] = insertVal
+		}
+		fmt.Println(*arr)
+	}
+}
+```
+
+---
+
+### 快速排序
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	arr := [6]int{-9, 78, 0, 23, -567, 70}
+	QuickSort(0, len(arr)-1, &arr)
+	fmt.Println(arr)
+}
+
+func QuickSort(left int, right int, arr *[6]int) {
+	l := left
+	r := right
+	pivot := arr[(left+right)/2]
+	// 把 pivot 小的数放左边，大的数放右边
+	for l < r {
+		for arr[l] < pivot {
+			l++
+		}
+		for arr[r] > pivot {
+			r--
+		}
+		if l >= r {
+			break
+		}
+		arr[l], arr[r] = arr[r], arr[l]
+
+		if arr[l] == pivot {
+			r--
+		}
+		if arr[r] == pivot {
+			l++
+		}
+	}
+	if l == r {
+		l++
+		r--
+	}
+	if left < r {
+		QuickSort(left, r, arr)
+	}
+	if right > l {
+		QuickSort(l, right, arr)
+	}
+}
+```
+
+---
+
+## 栈（Stack）
+
+先入后出
+
+**应用场景**
+
+1. 子程序的调用：在跳往子程序前，会先将下个指令的地址存到堆栈中，直到子程序执行完毕后再将地址取出，以回到原来的程序中
+2. 处理递归调用：和子程序的调用类似，只是除了存储下一个指令的地址外，也将参数、区域变量等数据存入堆栈中
+3. 表达式的转换与求值
+4. 二叉树的遍历
+5. 图形的深度优先（depth-first）搜索法
+
+6. ...
+
+**案例**
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+)
+
+// 栈
+type Stack struct {
+	MaxTop int    // 表示我们栈最大可以存放数个数
+	Top    int    // 随着值得加入变换
+	array  [5]int // 数组模拟栈
+}
+
+func main() {
+	stack := &Stack{
+		MaxTop: 5,
+		Top:    -1, // -1 表示栈为空
+	}
+	stack.Push(1)
+	stack.Push(2)
+	stack.Push(3)
+	stack.Push(4)
+	stack.Push(5)
+
+	stack.List()
+    // arr[4]=5
+    // arr[3]=4
+    // arr[2]=3
+    // arr[1]=2
+    // arr[0]=1
+    
+    v, _ := stack.Pop()
+    fmt.Println(v) // 5
+}
+
+// 1.入栈
+func (this *Stack) Push(val int) (err error) {
+	if this.Top == this.MaxTop-1 {
+		fmt.Println("stack full")
+		return errors.New("stack full")
+	}
+	this.Top++
+	this.array[this.Top] = val
+	return
+}
+
+// 2.出栈
+func (this *Stack) Pop() (val int, err error) {
+	if this.Top == -1 {
+		fmt.Println("stack empty")
+		return -1, errors.New("stack empty")
+	}
+	val = this.array[this.Top]
+	this.Top--
+	return val, nil
+}
+
+// 3.遍历
+func (this *Stack) List() {
+	if this.Top == -1 {
+		fmt.Println("stack empty")
+		return
+	}
+	for i := this.Top; i >= 0; i-- {
+		fmt.Printf("arr[%d]=%d\n", i, this.array[i])
+	}
+}
+```
+
+**实现计算器**
+
+1. 创建两个栈，numStack，operStack
+2. numStack 存放数，operStack 操作符
+3. `index := 0`
+4. exp 计算表达式，是一个字符串
+5. 如果扫描发现是一个数字，则直接 numStack
+6. 如果发现是一个运算符
+   - 如果 operStack 是一个空栈，直接入栈
+   - operStack  不是空栈
+     + 如果发现 operStack 栈顶得运算符得优先级大于等于当前准备入栈得运算符得优先级，就从符号栈取出 pop 出，并从数栈也 pop 出两个数，进行运算，运算后得结果再重新入栈到数栈
+     + 否则运算符直接入栈
+   - 如果扫描表达式完毕，依次从符号栈取出符号，让后从数栈取出两个数进行运算，运算后得结果，入数栈，直到符号栈为空
+
+```go
+package main
+
+import (
+	"errors"
+	"fmt"
+	"strconv"
+)
+
+type Stack struct {
+	MaxTop int     // 表示我们栈最大可以存放数个数
+	Top    int     // 随着值得加入变换
+	array  [20]int // 数组模拟栈
+}
+
+func main() {
+	// 数栈
+	numStack := &Stack{
+		MaxTop: 20,
+		Top:    -1,
+	}
+	// 符号栈
+	operStack := &Stack{
+		MaxTop: 20,
+		Top:    -1,
+	}
+	// 表达式
+	exp := "30+3*6-4"
+	// 定义一个 index，帮助扫描 exp
+	index := 0
+	num1, num2, oper, result, keepNum := 0, 0, 0, 0, ""
+	for {
+		ch := exp[index : index+1]  // 字符串
+		temp := int([]byte(ch)[0])  // 字符对应的 ASCiI 值
+		if operStack.IsOper(temp) { // 说明是符号
+			if operStack.Top == -1 {
+				operStack.Push(temp)
+			} else {
+				if operStack.Priority(operStack.array[operStack.Top]) 
+                >= operStack.Priority(temp) {
+					num1, _ = numStack.Pop()
+					num2, _ = numStack.Pop()
+					oper, _ = operStack.Pop()
+					result = operStack.Cal(num1, num2, oper)
+					numStack.Push(result)
+					operStack.Push(temp)
+				} else {
+					operStack.Push(temp)
+				}
+			}
+		} else { // 说明是数
+			keepNum += ch
+			if index == len(exp)-1 {
+				val, _ := strconv.ParseInt(keepNum, 10, 64)
+				numStack.Push(int(val))
+			} else {
+				if operStack.IsOper(int([]byte(exp[index+1 : index+2])[0])) {
+					val, _ := strconv.ParseInt(keepNum, 10, 64)
+					numStack.Push(int(val))
+					keepNum = ""
+				}
+			}
+
+		}
+		// 继续扫描
+		if index+1 == len(exp) {
+			break
+		}
+		index++
+	}
+	for {
+		if operStack.Top == -1 {
+			break
+		}
+		num1, _ = numStack.Pop()
+		num2, _ = numStack.Pop()
+		oper, _ = operStack.Pop()
+		result = operStack.Cal(num1, num2, oper)
+		numStack.Push(result)
+	}
+	// 算法没有问题，表达式也是正确的
+	res, _ := numStack.Pop()
+	fmt.Println(res)
+}
+
+// 1.入栈
+func (this *Stack) Push(val int) (err error) {
+	if this.Top == this.MaxTop-1 {
+		fmt.Println("stack full")
+		return errors.New("stack full")
+	}
+	this.Top++
+	this.array[this.Top] = val
+	return
+}
+
+// 2.出栈
+func (this *Stack) Pop() (val int, err error) {
+	if this.Top == -1 {
+		fmt.Println("stack empty")
+		return -1, errors.New("stack empty")
+	}
+	val = this.array[this.Top]
+	this.Top--
+	return val, nil
+}
+
+// 3.遍历
+func (this *Stack) List() {
+	if this.Top == -1 {
+		fmt.Println("stack full")
+		return
+	}
+	for i := this.Top; i >= 0; i-- {
+		fmt.Printf("arr[%d]=%d\n", i, this.array[i])
+	}
+}
+
+// 判断一个字符是不是一个运算符[+, -, *, /]
+func (this *Stack) IsOper(val int) bool {
+	if val == 42 || val == 43 || val == 45 || val == 47 {
+		return true
+	}
+	return false
+}
+
+// 运算的方法
+func (this *Stack) Cal(num1 int, num2 int, oper int) int {
+	res := 0
+	switch oper {
+	case 42:
+		res = num2 * num1
+	case 43:
+		res = num2 + num1
+	case 45:
+		res = num2 - num1
+	case 47:
+		res = num2 / num1
+	default:
+		fmt.Println("运算符错误")
+	}
+	return res
+}
+
+// 返回运算符的优先级
+func (this *Stack) Priority(oper int) int {
+	res := 0
+	if oper == 42 || oper == 47 {
+		res = 1
+	} else if oper == 43 || oper == 45 {
+		res = 0
+	}
+	return res
+}
+```
+
+---
 
