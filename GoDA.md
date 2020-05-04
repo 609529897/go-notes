@@ -25,11 +25,11 @@ func BSearch(slice []int, target int) int {
 			return guess
 		} else if slice[guess] < target {
 			start = guess + 1
-		} else {
+		} else if slice[guess] > target{
 			end = guess - 1
 		}
 	}
-	return -1
+	return -143
 }
 ```
 
@@ -725,20 +725,20 @@ func SelectionSort(arr *[5]int) {
 ### 插入排序
 
 ```go
-func InsertSort(arr *[5]int) {
-	for i := 1; i < len(*arr); i++ {
+func insertSort(arr *[5]int) {
+	for i := 1; i < len(arr); i++ {
 		insertVal := arr[i]
 		insertIndex := i - 1
-		// 从大到小
+        // 从大到小
 		for insertIndex >= 0 && arr[insertIndex] < insertVal {
 			arr[insertIndex+1] = arr[insertIndex]
 			insertIndex--
 		}
-		// 插入
+        // 插入
 		if insertIndex+1 != i {
 			arr[insertIndex+1] = insertVal
 		}
-		fmt.Println(*arr)
+		fmt.Println(arr)
 	}
 }
 ```
@@ -794,6 +794,16 @@ func QuickSort(left int, right int, arr *[6]int) {
 	}
 }
 ```
+
+
+
+---
+
+### 排序的速度比较
+
+1. 快速排序
+2. 插入排序
+3. 选择排序
 
 ---
 
@@ -1055,4 +1065,103 @@ func (this *Stack) Priority(oper int) int {
 ```
 
 ---
+
+## 递归机制
+
+方法或者函数自己调用自己
+
+**可以解决的问题：**
+
+- 8 皇后问题
+- 汉诺塔问题
+- 阶乘问题
+- 迷宫问题
+- 球和篮子问题（google 编程大赛）
+- 用递归简化栈的代码
+
+**递归时需要遵循的四个规则：**
+
+1. 执行一个函数时，就创建一个新的受保护的独立空间（新函数栈）
+2. 函数的局部变量是独立的，不会相互影响
+3. 递归必须向退出递归的条件逼近，否则就是无限递归，死龟了:)
+4. 当一个函数执行完毕，或者遇到 return，就会返回，遵守谁调用，就将结果返回给谁，同时当函数执行或者返回时，该函数本身也会被系统销毁
+
+**迷宫问题：**
+
+  规则：
+
+1. 如果元素的值为 0，是没有走过的点
+2. 如果元素的值为 1，就是墙
+3. 如果元素的值为 2，是通路
+4. 如果元素的值为 3，表示曾经走过是死路
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// 二维数组模拟迷宫
+	var myMap [8][7]int
+	// 地图的最上最下设置为1
+	for i := 0; i < 7; i++ {
+		myMap[0][i] = 1
+		myMap[7][i] = 1
+	}
+	// 地图最左最右设置为1
+	for i := 0; i < 8; i++ {
+		myMap[i][0] = 1
+		myMap[i][6] = 1
+	}
+	myMap[3][1] = 1
+	myMap[3][2] = 1
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 7; j++ {
+			fmt.Print(myMap[i][j], " ")
+		}
+		fmt.Println()
+	}
+	// 测试
+	SetWay(&myMap, 1, 1)
+	fmt.Println("探测完毕的地图")
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 7; j++ {
+			fmt.Print(myMap[i][j], " ")
+		}
+		fmt.Println()
+	}
+}
+
+// i, j 对地图的某个点进行测试
+func SetWay(myMap *[8][7]int, i, j int) bool {
+	if myMap[6][5] == 2 {
+		return true
+	}
+	// 需要继续找
+	if myMap[i][j] == 0 {
+		// 假设可以通
+		myMap[i][j] = 2
+		if SetWay(myMap, i+1, j) { // 下
+			return true
+		} else if SetWay(myMap, i, j+1) { // 右
+			return true
+		} else if SetWay(myMap, i-1, j) { // 上
+			return true
+		} else if SetWay(myMap, i, j-1) { // 左
+			return true
+		} else { // 死路
+			myMap[i][j] = 3
+			return false
+		}
+	} else { // 说明是墙
+		return false
+	}
+}
+```
+
+---
+
+## 哈希表（散列）Hash Table
+
+使用 hash table（不带表头的链表）来实现一个雇员的管理系统，实现增加、查询（显示所有员工，按 ID 查询）
 
